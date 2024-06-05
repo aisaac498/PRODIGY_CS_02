@@ -88,3 +88,4 @@ venv.bak/
 # System Files
 .DS_Store
 Thumbs.db
+pwstr-virtual/
