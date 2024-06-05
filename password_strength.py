@@ -1,22 +1,92 @@
 import customtkinter as ctk
 from tkinter import StringVar
-import re
 from PIL import Image, ImageTk
+import re
+import tkinter as tk
 
-# 1st Modification: Allow the user to toggle between light and dark mode and change the button icon
-def toggle_mode():
-    if ctk.get_appearance_mode() == "Light":
-        ctk.set_appearance_mode("Dark")
-        mode_button.configure(image=sun_image, text="")
-    else:
-        ctk.set_appearance_mode("Light")
-        mode_button.configure(image=moon_image, text="")
+# Class to handle theme toggling between dark and light modes
+class ThemeToggle:
+    def __init__(self, parent_frame, dark_mode_img_path, light_mode_img_path):
+        # Initialize with dark mode
+        self.is_dark_mode = True
+        self.parent_frame = parent_frame
 
+        # Load and resize images for dark and light modes
+        self.moon_img = ImageTk.PhotoImage(Image.open(dark_mode_img_path).resize((30, 30), Image.LANCZOS))
+        self.sun_img = ImageTk.PhotoImage(Image.open(light_mode_img_path).resize((30, 30), Image.LANCZOS))
+
+        # Create a label to display the current theme icon
+        self.icon_label = tk.Label(parent_frame, image=self.moon_img, cursor="hand2")
+        # Place at top right corner with padding
+        self.icon_label.place(relx=1.0, rely=0.0, anchor='ne', x=-10, y=10)
+        # Bind click event to toggle theme
+        self.icon_label.bind("<Button-1>", self.toggle_mode)
+
+        # Set initial theme colors
+        self.set_theme_colors(dark_mode=True)
+
+    def toggle_mode(self, event=None):
+        # Toggle between dark and light modes
+        if self.is_dark_mode:
+            ctk.set_appearance_mode("Light")  # Set light mode
+            self.icon_label.configure(image=self.sun_img)  # Change icon to sun
+            self.set_theme_colors(dark_mode=False)  # Update theme colors
+        else:
+            ctk.set_appearance_mode("Dark")  # Set dark mode
+            self.icon_label.configure(image=self.moon_img)  # Change icon to moon
+            self.set_theme_colors(dark_mode=True)  # Update theme colors
+        self.is_dark_mode = not self.is_dark_mode  # Toggle the mode state
+
+    def set_theme_colors(self, dark_mode):
+        # Set text color based on the theme
+        fg_color = "#ffffff" if dark_mode else "#000000"
+        for widget in self.parent_frame.winfo_children():
+            # Update text color for different widget types, excluding the feedback label
+            if isinstance(widget, (ctk.CTkLabel, ctk.CTkEntry)) and widget != feedback_label:
+                widget.configure(text_color=fg_color)
+
+# Class to handle the password visibility toggle
+class PasswordToggle:
+    def __init__(self, parent_frame, password_entry, hide_img_path, show_img_path):
+        # Initialize with password hidden
+        self.is_password_visible = False
+        self.parent_frame = parent_frame
+        self.password_entry = password_entry
+
+        # Load and resize images for hiding and showing the password
+        self.hide_img = ImageTk.PhotoImage(Image.open(hide_img_path).resize((30, 30), Image.LANCZOS))
+        self.show_img = ImageTk.PhotoImage(Image.open(show_img_path).resize((30, 30), Image.LANCZOS))
+
+        # Create a label to display the current visibility icon
+        self.icon_label = tk.Label(parent_frame, image=self.hide_img, cursor="hand2")
+        # Add some padding to the left to create space between the icon and the entry field
+        self.icon_label.pack(side=tk.LEFT, padx=(5, 0))
+        # Bind click event to toggle visibility
+        self.icon_label.bind("<Button-1>", self.toggle_password_visibility)
+
+    def toggle_password_visibility(self, event=None):
+        # Toggle between showing and hiding the password
+        if self.is_password_visible:
+            self.password_entry.configure(show="*")  # Hide the password
+            self.icon_label.configure(image=self.hide_img)  # Change icon to hide
+        else:
+            self.password_entry.configure(show="")  # Show the password
+            self.icon_label.configure(image=self.show_img)  # Change icon to show
+        self.is_password_visible = not self.is_password_visible  # Toggle the visibility state
+
+# Function to check the strength of the input password
 def check_password_strength():
-    password = password_var.get()
+    password = password_var.get()  # Get the input password
+    
+    # Check if password input is empty
+    if not password:
+        feedback_label.configure(text="Please input a password", text_color="red")
+        return
+
     strength = 0
     feedback = []
 
+    # Criteria for password strength
     if len(password) >= 8:
         strength += 1
     else:
@@ -42,8 +112,9 @@ def check_password_strength():
     else:
         feedback.append("Password should include at least one special character.")
 
-    display_feedback(strength, feedback)
+    display_feedback(strength, feedback)  # Display the password strength feedback
 
+# Function to display feedback based on password strength
 def display_feedback(strength, feedback):
     if strength == 5:
         feedback_label.configure(text="Password is very strong!", text_color="green")
@@ -52,56 +123,57 @@ def display_feedback(strength, feedback):
     else:
         feedback_label.configure(text="Password is weak. " + " ".join(feedback), text_color="red")
 
-# 2nd Modification: Make the feedback label text wrap based on the window size
+# Function to wrap feedback text based on window size
 def wrap_feedback(event):
     feedback_label.configure(wraplength=app.winfo_width() - 40)
 
-# 3rd Modification: Allow the user to reveal the written password
-def toggle_password_visibility():
-    if password_entry.cget("show") == "*":
-        password_entry.configure(show="")
-        toggle_visibility_button.configure(text="Hide Password")
-    else:
-        password_entry.configure(show="*")
-        toggle_visibility_button.configure(text="Show Password")
+# Function to set up the GUI
+def setup_gui():
+    # Set appearance and theme of the CustomTkinter application
+    ctk.set_appearance_mode("System")  # Set appearance mode (System, Dark, Light)
+    ctk.set_default_color_theme("blue")  # Set the color theme
 
-app = ctk.CTk()
-app.title("Password Strength Checker")
-app.geometry("400x300")
+    global app, feedback_label
+    app = ctk.CTk()  # Initialize the main window
+    app.title("Password Strength Checker")  # Set window title
+    app.geometry("400x300")  # Set window size
 
-password_var = StringVar()
-password_entry = ctk.CTkEntry(app, textvariable=password_var, width=300, show="*")
-password_entry.pack(pady=20)
+    # Create a main frame to hold all widgets
+    main_frame = ctk.CTkFrame(app, width=380, height=280)
+    main_frame.place(relx=0.5, rely=0.5, anchor='center')  # Center the main frame
+    main_frame.pack_propagate(False)  # Prevent frame from resizing to fit its content
 
-# 4th Modification: Center the buttons in the middle of the screen
-button_frame = ctk.CTkFrame(app)
-button_frame.pack(pady=10)
+    # Variable to hold the password input
+    global password_var, password_entry
+    password_var = StringVar()
+    
+    # Frame to hold password entry and visibility toggle
+    password_frame = ctk.CTkFrame(main_frame)
+    password_frame.pack(pady=(60, 20))
 
-check_button = ctk.CTkButton(button_frame, text="Check Password Strength", command=check_password_strength)
-check_button.pack(pady=5)
+    password_entry = ctk.CTkEntry(password_frame, textvariable=password_var, width=260, show="*")  # Reduced width to accommodate the icon
+    password_entry.pack(side=tk.LEFT)
 
-toggle_visibility_button = ctk.CTkButton(button_frame, text="Show Password", command=toggle_password_visibility)
-toggle_visibility_button.pack(pady=5)
+    # Add the password visibility toggle functionality
+    password_toggle = PasswordToggle(password_frame, password_entry, "images/hide.png", "images/show.png")
 
-feedback_label = ctk.CTkLabel(app, text="", wraplength=360)
-feedback_label.pack(pady=10)
+    # Button to check password strength
+    check_button = ctk.CTkButton(main_frame, text="Check Password Strength", command=check_password_strength)
+    check_button.pack(pady=5)
 
-# Load and resize images
-sun_image_path = "images/sun.png"  # Replace with the path to your sun image
-moon_image_path = "images/moon.png"  # Replace with the path to your moon image
+    # Label to display feedback
+    feedback_label = ctk.CTkLabel(main_frame, text="", wraplength=360)
+    feedback_label.pack(pady=10)
 
-sun_image_pil = Image.open(sun_image_path).resize((32, 32), Image.Resampling.LANCZOS)
-moon_image_pil = Image.open(moon_image_path).resize((32, 32), Image.Resampling.LANCZOS)
+    # Add the theme toggle functionality
+    theme_toggle = ThemeToggle(main_frame, "images/moon.png", "images/sun.png")
 
-# Convert Image objects to PhotoImage objects using ImageTk
-sun_image = ImageTk.PhotoImage(sun_image_pil)
-moon_image = ImageTk.PhotoImage(moon_image_pil)
+    # Bind the wrap_feedback function to window resize events
+    app.bind("<Configure>", wrap_feedback)
 
-# Position the mode toggle button at the top right
-mode_button = ctk.CTkButton(app, image=moon_image, text="", command=toggle_mode)
-mode_button.place(relx=1.0, rely=0.0, anchor='ne', x=-10, y=10)  # Adjust 'x' and 'y' to position the button properly
+    # Start the application's main event loop
+    app.mainloop()
 
-# Binding the wrap_feedback function to the configure event of the app
-app.bind("<Configure>", wrap_feedback)
-
-app.mainloop()
+# Run the GUI setup
+if __name__ == "__main__":
+    setup_gui()
